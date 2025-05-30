@@ -159,7 +159,7 @@
       "name": "Vetro",
       "code": "glass",
       "price": 3,
-      "alpha": 0.15,
+      "alpha": 0.3,
       "transparencyMode": "alphablend",
       "metallic": 0,
       "roughness": 0.05,

@@ -49,7 +49,6 @@ export const BabylonPreview = ({
   // Impostazione dei Ref e degli State del canvas.
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvas = canvasRef.current;
-  const isMouseOverCanvasRef = useRef<boolean>(false);
   const [borderAnimated, setBorderAnimated] = useState(false);
   // Impostazione dei Ref di Babylon.
   const engineRef = useRef<Engine | null>(null);
@@ -118,6 +117,7 @@ export const BabylonPreview = ({
 
     // Creazione materiale.
     const mat = new PBRMaterial("mugPBRMat", sceneRef.current);
+
     materialRef.current = mat;
 
     // Re-render della scena.
@@ -168,33 +168,47 @@ export const BabylonPreview = ({
         });
 
         if (meshes.length > 0) {
-          const boundingInfo = meshes[0].getHierarchyBoundingVectors();
-          const center = boundingInfo.min.add(boundingInfo.max).scale(0.5);
+          // Calcola il bouding box della mesh.
+          const boundingBox = meshes[0].getHierarchyBoundingVectors();
 
+          // Clacola il centro del bounding box.
+          const center = boundingBox.min.add(boundingBox.max).scale(0.5);
+
+          // Ottiene la mesh principale.
           const mainMesh = meshes[0];
+
           if (mainMesh) {
+            // Centra e ruota la mesh.
             mainMesh.position.subtractInPlace(center);
             mainMesh.rotation.y = Math.PI;
           }
 
+          // Assegna una scala di default se l'utente non ne ha selezionata una.
           const scale = selectedMugSize ? selectedMugSize.scale : 1.0;
 
+          // Trova la mesh principale.
           const rootMesh = result.meshes.find((m) => !m.parent);
+
           if (rootMesh) {
+            // Applica la scala al mesh.
             rootMesh.scaling = new Vector3(scale, scale, scale);
           }
 
-          const radius =
-            boundingInfo.max.subtract(boundingInfo.min).length() / 2;
+          // Calcola il raggio del bouding box
+          const radius = boundingBox.max.subtract(boundingBox.min).length() / 2;
+
+          // Recupera la camera attiva e aggiorna raggio e target.
           const camera = scene.activeCamera as ArcRotateCamera;
           camera.radius = radius * 3;
           camera.target = Vector3.Zero();
         }
 
+        // Salva la mesh nel Ref.
         meshesRef.current = meshes;
 
         console.log(`Tipo selezionato: ${selectedMugType.fileName}`); // Debug
 
+        // Animazione del canvas eseguita al cambio di tipo di tazza.
         setBorderAnimated(true);
         const timeout = setTimeout(() => setBorderAnimated(false), 300); // durata animazione 500ms
 
@@ -212,6 +226,7 @@ export const BabylonPreview = ({
     if (!material || !selectedMugColor) return;
 
     try {
+      // Imposta il colore utilizzando il colore selezionato.
       material.albedoColor = Color3.FromHexString(selectedMugColor.code);
 
       console.log(
@@ -219,7 +234,7 @@ export const BabylonPreview = ({
         selectedMugColor,
       ); // Debug
     } catch (error) {
-      console.error("Errore durante il cambiamento del colore:", error);
+      console.error("Errore durante il cambiamento del colore:", error); // Debug
     }
   }, [material, selectedMugColor]);
 
@@ -227,18 +242,24 @@ export const BabylonPreview = ({
   useEffect(() => {
     if (!meshes || !selectedMugSize) return;
 
+    // Scala di normalizzazione base.
     const base = normalizationScaleRef.current;
+
+    // Scala selezionata dall'utente.
     const userScale = selectedMugSize.scale;
+
+    // Calcola la scala finale/
     const finalScale = base * userScale;
 
     try {
+      // Applica la stessa scala a tutte le mesh.
       meshes.forEach((mesh) => {
         mesh.scaling = new Vector3(finalScale, finalScale, finalScale);
       });
 
-      console.log("Applico scala finale:", finalScale);
+      console.log("Applico scala finale:", finalScale); // Debug
     } catch (error) {
-      console.error("Errore durante la scala utente:", error);
+      console.error("Errore durante la scala utente:", error); // Debug
     }
   }, [meshes, selectedMugSize]);
 
@@ -247,17 +268,20 @@ export const BabylonPreview = ({
     if (!selectedMugMaterial || !scene || !material) return;
 
     try {
+      // Recupera le impostazioni del materiale dal "database".
       material.alpha = selectedMugMaterial.alpha;
       material.metallic = selectedMugMaterial.metallic;
       material.roughness = selectedMugMaterial.roughness;
       material.indexOfRefraction = selectedMugMaterial.indexOfRefraction;
 
+      // Imposta il tipo di trasparenza in base al valore ritornato dal "database".
       if (selectedMugMaterial.transparencyMode === "opaque") {
         material.transparencyMode = PBRMaterial.PBRMATERIAL_OPAQUE;
       } else if (selectedMugMaterial.transparencyMode === "alphablend") {
         material.transparencyMode = PBRMaterial.PBRMATERIAL_ALPHABLEND;
       }
 
+      // Applica lo stesso materiale a tutte le mesh.
       if (meshes) {
         meshes.forEach((child) => {
           child.material = material;
@@ -266,10 +290,10 @@ export const BabylonPreview = ({
 
       console.log(
         `Materiale selezionato: ${selectedMugMaterial.code}`,
-        selectedMugMaterial,
+        selectedMugMaterial, // Debug
       );
     } catch (error) {
-      console.error("Errore durante il cambio del materiale:", error);
+      console.error("Errore durante il cambio del materiale:", error); // Debug
     }
   }, [material, meshes, scene, selectedMugMaterial]);
 
@@ -277,9 +301,11 @@ export const BabylonPreview = ({
   useEffect(() => {
     if (!scene || !material || !meshes) return;
 
+    // Se non è selezionata una texture, rimuove la texture corrente.
     if (!selectedMugTexture) {
       material.albedoTexture = null;
 
+      // Applica il materiale a tutte le mesh.
       meshes.forEach((mesh) => {
         mesh.material = material;
       });
@@ -288,40 +314,40 @@ export const BabylonPreview = ({
     }
 
     try {
+      // Crea una nuova texture a partire dall'immagine della texture.
       const texture = new Texture(
         `images/textures/${selectedMugTexture.fileName}.jpg`,
         scene,
       );
+
+      // Impostazioni scala texture e canale alpha.
       texture.uScale = 1;
       texture.vScale = 1;
       texture.hasAlpha = false;
 
+      // Assegna la nuova tetxure al materiale.
       material.albedoTexture = texture;
 
+      // Applica il materiale a tutte le mesh.
       meshes.forEach((mesh) => {
         mesh.material = material;
       });
 
       console.log(
         `Texture selezionata: ${selectedMugTexture.name}`,
-        selectedMugTexture,
+        selectedMugTexture, // Debug
       );
     } catch (error) {
-      console.error("Errore durante il caricamento della texture:", error);
+      console.error("Errore durante il caricamento della texture:", error); // Debug
     }
   }, [material, meshes, scene, selectedMugTexture]);
 
   // Inserimento immagine
   useEffect(() => {
-    if (!scene || !material) return;
-
-    if (!selectedMugImage) {
-      material.albedoTexture = null;
-      console.log("Nessuna immagine selezionata");
-      return;
-    }
+    if (!scene || !material || !selectedMugImage) return;
 
     try {
+      // Crea una nuova Texture con l'immagine selezionata.
       const texture = new Texture(
         selectedMugImage,
         scene,
@@ -329,10 +355,13 @@ export const BabylonPreview = ({
         false,
         Texture.TRILINEAR_SAMPLINGMODE,
       );
+
+      // Impostazioni scala texture e canale alpha.
       texture.uScale = 1;
       texture.vScale = 1;
       texture.hasAlpha = true;
 
+      // Applica l'immagine alla tazza.
       material.albedoTexture = texture;
 
       console.log("Immagine personalizzata applicata", selectedMugImage); // Debug
@@ -341,32 +370,9 @@ export const BabylonPreview = ({
     }
   }, [material, scene, selectedMugImage]);
 
-  const handleMouseEnter = () => {
-    isMouseOverCanvasRef.current = true;
-  };
-
-  const handleMouseLeave = () => {
-    isMouseOverCanvasRef.current = false;
-  };
-
-  const handleWheel = (event: WheelEvent) => {
-    if (isMouseOverCanvasRef.current) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-  };
-
-  // Aggiunta degli EventListener al canvas.
-  if (canvas) {
-    canvas.addEventListener("mouseenter", handleMouseEnter);
-    canvas.addEventListener("mouseleave", handleMouseLeave);
-    canvas.addEventListener("wheel", handleWheel, { passive: false });
-  }
-
   return (
     <canvas
       ref={canvasRef}
-      // className="h-full w-full rounded-lg focus:outline focus:outline-[#C8B6A6]"
       className={clsx(
         "relative h-full w-full rounded-lg border transition-all duration-500 focus:outline focus:outline-[#C8B6A6]",
         {
